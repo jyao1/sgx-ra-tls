@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <sgx_uae_service.h>
+//#include <sgx_uae_service.h>
 
 #include <mbedtls/certs.h>
 #include <mbedtls/ctr_drbg.h>
@@ -18,16 +18,16 @@
 #include <mbedtls/x509_crt.h>
 
 #include "ra.h"
-#include "ra-attester.h"
-#include "ra_private.h"
+//#include "ra-attester.h"
+//#include "ra_private.h"
 
-static const size_t SHA256_DIGEST_SIZE = 32;
+#define SHA256_DIGEST_SIZE 32
 
 static
 void sha256_rsa_pubkey(unsigned char hash[SHA256_DIGEST_SIZE],
                        const mbedtls_pk_context* pk) {
 
-    static const int pk_der_size_max = 512;
+    #define pk_der_size_max  512
     uint8_t pk_der[pk_der_size_max];
     memset(pk_der, 0, pk_der_size_max);
 
@@ -146,11 +146,45 @@ void create_x509
     const struct ra_tls_options* opts
 )
 {
-    sgx_report_data_t report_data = {0, };
-    sha256_rsa_pubkey(report_data.d, key);
+    //sgx_report_data_t report_data = {0, };
+    //sha256_rsa_pubkey(report_data.d, key);
     attestation_verification_report_t attestation_report;
+        attestation_report.ias_report[0] = 'r';
+    attestation_report.ias_report[1] = 'e';
+    attestation_report.ias_report[2] = 'p';
+    attestation_report.ias_report[3] = 'o';
+    attestation_report.ias_report[4] = 'r';
+    attestation_report.ias_report[5] = 't';
+    attestation_report.ias_report_len = 6;
 
-    do_remote_attestation(&report_data, opts, &attestation_report);
+    attestation_report.ias_report_signature[0] = 's';
+    attestation_report.ias_report_signature[1] = 'g';
+    attestation_report.ias_report_signature[2] = 'n';
+    attestation_report.ias_report_signature[3] = 'a';
+    attestation_report.ias_report_signature[4] = 't';
+    attestation_report.ias_report_signature[5] = 'u';
+    attestation_report.ias_report_signature[6] = 'r';
+    attestation_report.ias_report_signature[7] = 'e';
+    attestation_report.ias_report_signature_len = 7;
+
+    attestation_report.ias_sign_ca_cert[0] = 'c';
+    attestation_report.ias_sign_ca_cert[1] = 'a';
+    attestation_report.ias_sign_ca_cert[2] = 'c';
+    attestation_report.ias_sign_ca_cert[3] = 'e';
+    attestation_report.ias_sign_ca_cert[4] = 'r';
+    attestation_report.ias_sign_ca_cert[5] = 't';
+    attestation_report.ias_sign_ca_cert_len = 6;
+
+    attestation_report.ias_sign_cert[0] = 's';
+    attestation_report.ias_sign_cert[1] = 'i';
+    attestation_report.ias_sign_cert[2] = 'g';
+    attestation_report.ias_sign_cert[3] = 'n';
+    attestation_report.ias_sign_cert[4] = 'e';
+    attestation_report.ias_sign_cert[5] = 'd';
+    attestation_report.ias_sign_cert_len = 6;
+
+
+    // do_remote_attestation(&report_data, opts, &attestation_report);
 
     generate_x509(writecrt, key, &attestation_report);
 
@@ -221,7 +255,7 @@ void __mbedtls_create_key_and_x509
         len = mbedtls_x509write_crt_pem(&writecrt, output_buf, sizeof(output_buf),
                                         mbedtls_ctr_drbg_random, &ctr_drbg);
         assert(len == 0);
-        len = strlen((char*) output_buf);
+        len = (int)strlen((char*) output_buf);
         assert(len <= *pem_cert_len);
         memcpy(pem_cert, output_buf, len);
         *pem_cert_len = len;

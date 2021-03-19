@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include <sgx_quote.h>
+//#include <sgx_quote.h>
 
 extern const uint8_t ias_response_body_oid[];
 extern const uint8_t ias_root_cert_oid[];
@@ -19,8 +19,8 @@ extern const size_t ias_oid_len;
 void get_quote_from_extension
 (
     uint8_t* ext,
-    size_t ext_len,
-    sgx_quote_t* q
+    size_t ext_len//,
+    //sgx_quote_t* q
 );
 
 int find_oid

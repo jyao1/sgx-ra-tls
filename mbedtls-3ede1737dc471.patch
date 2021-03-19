@@ -1,0 +1,305 @@
+From 6efde03c12219bb21e8874a7fde38f979732ccf8 Mon Sep 17 00:00:00 2001
+From: Xiaoyu Lu <xiaoyux.lu@intel.com>
+Date: Fri, 19 Mar 2021 08:23:12 +0800
+Subject: [PATCH] customer verify
+
+Signed-off-by: Xiaoyu Lu <xiaoyux.lu@intel.com>
+---
+ programs/ssl/ssl_client1.c | 94 +++++++++++++++++++-------------------
+ programs/ssl/ssl_server.c  | 68 +++++++++++++--------------
+ 2 files changed, 81 insertions(+), 81 deletions(-)
+
+diff --git a/programs/ssl/ssl_client1.c b/programs/ssl/ssl_client1.c
+index 00fbe7f3c..bb2c694ae 100644
+--- a/programs/ssl/ssl_client1.c
++++ b/programs/ssl/ssl_client1.c
+@@ -65,7 +65,12 @@ int main( void )
+ 
+ #include <string.h>
+ 
+-#define SERVER_PORT "4433"
++// #include <sgx_quote.h>
++
++#include "ra.h"
++#include "ra-challenger.h"
++
++#define SERVER_PORT "8443"
+ #define SERVER_NAME "localhost"
+ #define GET_REQUEST "GET / HTTP/1.0\r\n\r\n"
+ 
+@@ -82,12 +87,25 @@ static void my_debug( void *ctx, int level,
+     fflush(  (FILE *) ctx  );
+ }
+ 
++/* The callback is supposed to return 0 on success. Otherwise, the
++   verification failed. */
++static int my_verify(void *data, mbedtls_x509_crt *crt, int depth, uint32_t *flags) {
++
++    if (depth != 0) return 0;
++
++    (void) data;
++    (void) flags;
++
++    return verify_sgx_cert_extensions(crt->raw.p, (uint32_t)crt->raw.len);
++    //return 0;
++}
++
+ int main( void )
+ {
+     int ret = 1, len;
+     int exit_code = MBEDTLS_EXIT_FAILURE;
+     mbedtls_net_context server_fd;
+-    uint32_t flags;
++    //uint32_t flags;
+     unsigned char buf[1024];
+     const char *pers = "ssl_client1";
+ 
+@@ -95,8 +113,8 @@ int main( void )
+     mbedtls_ctr_drbg_context ctr_drbg;
+     mbedtls_ssl_context ssl;
+     mbedtls_ssl_config conf;
+-    mbedtls_x509_crt cacert;
+-
++    // mbedtls_x509_crt cacert;
++    
+ #if defined(MBEDTLS_DEBUG_C)
+     mbedtls_debug_set_threshold( DEBUG_LEVEL );
+ #endif
+@@ -107,7 +125,6 @@ int main( void )
+     mbedtls_net_init( &server_fd );
+     mbedtls_ssl_init( &ssl );
+     mbedtls_ssl_config_init( &conf );
+-    mbedtls_x509_crt_init( &cacert );
+     mbedtls_ctr_drbg_init( &ctr_drbg );
+ 
+     mbedtls_printf( "\n  . Seeding the random number generator..." );
+@@ -124,22 +141,6 @@ int main( void )
+ 
+     mbedtls_printf( " ok\n" );
+ 
+-    /*
+-     * 0. Initialize certificates
+-     */
+-    mbedtls_printf( "  . Loading the CA root certificate ..." );
+-    fflush( stdout );
+-
+-    ret = mbedtls_x509_crt_parse( &cacert, (const unsigned char *) mbedtls_test_cas_pem,
+-                          mbedtls_test_cas_pem_len );
+-    if( ret < 0 )
+-    {
+-        mbedtls_printf( " failed\n  !  mbedtls_x509_crt_parse returned -0x%x\n\n", (unsigned int) -ret );
+-        goto exit;
+-    }
+-
+-    mbedtls_printf( " ok (%d skipped)\n", ret );
+-
+     /*
+      * 1. Start the connection
+      */
+@@ -175,7 +176,7 @@ int main( void )
+     /* OPTIONAL is not optimal for security,
+      * but makes interop easier in this simplified example */
+     mbedtls_ssl_conf_authmode( &conf, MBEDTLS_SSL_VERIFY_OPTIONAL );
+-    mbedtls_ssl_conf_ca_chain( &conf, &cacert, NULL );
++    mbedtls_ssl_conf_verify(&conf, my_verify, NULL);
+     mbedtls_ssl_conf_rng( &conf, mbedtls_ctr_drbg_random, &ctr_drbg );
+     mbedtls_ssl_conf_dbg( &conf, my_debug, stdout );
+ 
+@@ -185,18 +186,18 @@ int main( void )
+         goto exit;
+     }
+ 
+-    if( ( ret = mbedtls_ssl_set_hostname( &ssl, SERVER_NAME ) ) != 0 )
+-    {
+-        mbedtls_printf( " failed\n  ! mbedtls_ssl_set_hostname returned %d\n\n", ret );
+-        goto exit;
+-    }
++    /* if( ( ret = mbedtls_ssl_set_hostname( &ssl, SERVER_NAME ) ) != 0 ) */
++    /* { */
++    /*     mbedtls_printf( " failed\n  ! mbedtls_ssl_set_hostname returned %d\n\n", ret ); */
++    /*     goto exit; */
++    /* } */
+ 
+     mbedtls_ssl_set_bio( &ssl, &server_fd, mbedtls_net_send, mbedtls_net_recv, NULL );
+ 
+     /*
+      * 4. Handshake
+      */
+-    mbedtls_printf( "  . Performing the SSL/TLS handshake..." );
++    mbedtls_printf( "  . Performing the SSL/TLS handshake...\n" );
+     fflush( stdout );
+ 
+     while( ( ret = mbedtls_ssl_handshake( &ssl ) ) != 0 )
+@@ -210,24 +211,24 @@ int main( void )
+ 
+     mbedtls_printf( " ok\n" );
+ 
+-    /*
+-     * 5. Verify the server certificate
+-     */
+-    mbedtls_printf( "  . Verifying peer X.509 certificate..." );
+-
+-    /* In real life, we probably want to bail out when ret != 0 */
+-    if( ( flags = mbedtls_ssl_get_verify_result( &ssl ) ) != 0 )
+-    {
+-        char vrfy_buf[512];
+-
+-        mbedtls_printf( " failed\n" );
+-
+-        mbedtls_x509_crt_verify_info( vrfy_buf, sizeof( vrfy_buf ), "  ! ", flags );
+-
+-        mbedtls_printf( "%s\n", vrfy_buf );
+-    }
+-    else
+-        mbedtls_printf( " ok\n" );
++    /* This demonstrates how to extract SGX-related fields from the
++       certificate. */
++    const mbedtls_x509_crt* peercrt = mbedtls_ssl_get_peer_cert( &ssl );
++    //sgx_quote_t quote;
++    //
++    //get_quote_from_cert(peercrt->raw.p, peercrt->raw.len, &quote);
++    //get_quote_from_cert(peercrt->raw.p, (uint32_t)peercrt->raw.len);
++
++    //sgx_report_body_t* body = &quote.report_body;
++
++    //printf("Certificate's SGX information:\n");
++    //printf("  . MRENCLAVE = ");
++    //for (int i=0; i < SGX_HASH_SIZE; ++i) printf("%02x", body->mr_enclave.m[i]);
++    //printf("\n");
++    //
++    //printf("  . MRSIGNER  = ");
++    //for (int i=0; i < SGX_HASH_SIZE; ++i) printf("%02x", body->mr_signer.m[i]);
++    //printf("\n");
+ 
+     /*
+      * 3. Write the GET request
+@@ -301,7 +302,6 @@ exit:
+ 
+     mbedtls_net_free( &server_fd );
+ 
+-    mbedtls_x509_crt_free( &cacert );
+     mbedtls_ssl_free( &ssl );
+     mbedtls_ssl_config_free( &conf );
+     mbedtls_ctr_drbg_free( &ctr_drbg );
+diff --git a/programs/ssl/ssl_server.c b/programs/ssl/ssl_server.c
+index 9cba88714..694ac8037 100644
+--- a/programs/ssl/ssl_server.c
++++ b/programs/ssl/ssl_server.c
+@@ -72,6 +72,11 @@ int main( void )
+ #include "mbedtls/error.h"
+ #include "mbedtls/debug.h"
+ 
++//#include <sgx_quote.h>
++
++#include "mbedtls-ra-attester.h"
++#include "ra-challenger.h"
++
+ #if defined(MBEDTLS_SSL_CACHE_C)
+ #include "mbedtls/ssl_cache.h"
+ #endif
+@@ -94,6 +99,8 @@ static void my_debug( void *ctx, int level,
+     fflush(  (FILE *) ctx  );
+ }
+ 
++struct ra_tls_options my_ra_tls_options;
++
+ int main( void )
+ {
+     int ret, len;
+@@ -128,49 +135,22 @@ int main( void )
+ #endif
+ 
+     /*
+-     * 1. Load the certificates and private RSA key
++     * 1. Generate the certificate and private RSA key
+      */
+-    mbedtls_printf( "\n  . Loading the server cert. and key..." );
++    mbedtls_printf( "\n  . Generating the server cert. and key..." );
+     fflush( stdout );
+ 
+-    /*
+-     * This demonstration program uses embedded test certificates.
+-     * Instead, you may want to use mbedtls_x509_crt_parse_file() to read the
+-     * server and CA certificates, as well as mbedtls_pk_parse_keyfile().
+-     */
+-    ret = mbedtls_x509_crt_parse( &srvcert, (const unsigned char *) mbedtls_test_srv_crt,
+-                          mbedtls_test_srv_crt_len );
+-    if( ret != 0 )
+-    {
+-        mbedtls_printf( " failed\n  !  mbedtls_x509_crt_parse returned %d\n\n", ret );
+-        goto exit;
+-    }
+-
+-    ret = mbedtls_x509_crt_parse( &srvcert, (const unsigned char *) mbedtls_test_cas_pem,
+-                          mbedtls_test_cas_pem_len );
+-    if( ret != 0 )
+-    {
+-        mbedtls_printf( " failed\n  !  mbedtls_x509_crt_parse returned %d\n\n", ret );
+-        goto exit;
+-    }
+-
+-    ret =  mbedtls_pk_parse_key( &pkey, (const unsigned char *) mbedtls_test_srv_key,
+-                         mbedtls_test_srv_key_len, NULL, 0 );
+-    if( ret != 0 )
+-    {
+-        mbedtls_printf( " failed\n  !  mbedtls_pk_parse_key returned %d\n\n", ret );
+-        goto exit;
+-    }
++    mbedtls_create_key_and_x509(&pkey, &srvcert, &my_ra_tls_options);
+ 
+     mbedtls_printf( " ok\n" );
+ 
+     /*
+      * 2. Setup the listening TCP socket
+      */
+-    mbedtls_printf( "  . Bind on https://localhost:4433/ ..." );
++    mbedtls_printf( "  . Bind on https://localhost:8443/ ..." );
+     fflush( stdout );
+ 
+-    if( ( ret = mbedtls_net_bind( &listen_fd, NULL, "4433", MBEDTLS_NET_PROTO_TCP ) ) != 0 )
++    if( ( ret = mbedtls_net_bind( &listen_fd, "127.0.0.1", "8443", MBEDTLS_NET_PROTO_TCP ) ) != 0 )
+     {
+         mbedtls_printf( " failed\n  ! mbedtls_net_bind returned %d\n\n", ret );
+         goto exit;
+@@ -256,7 +236,10 @@ reset:
+     if( ( ret = mbedtls_net_accept( &listen_fd, &client_fd,
+                                     NULL, 0, NULL ) ) != 0 )
+     {
++        char errbuf[512];
++        mbedtls_strerror(ret, errbuf, sizeof(errbuf));
+         mbedtls_printf( " failed\n  ! mbedtls_net_accept returned %d\n\n", ret );
++        mbedtls_printf("%s\n", errbuf);
+         goto exit;
+     }
+ 
+@@ -330,8 +313,25 @@ reset:
+     mbedtls_printf( "  > Write to client:" );
+     fflush( stdout );
+ 
+-    len = sprintf( (char *) buf, HTTP_RESPONSE,
+-                   mbedtls_ssl_get_ciphersuite( &ssl ) );
++    //sgx_quote_t quote;
++    //get_quote_from_cert(srvcert.raw.p, srvcert.raw.len, &quote);
++    //sgx_report_body_t* body = &quote.report_body;
++
++    //char mrenclave_hex_str[SGX_HASH_SIZE * 2 + 1] = {0, };
++    //char mrsigner_hex_str[SGX_HASH_SIZE * 2 + 1] = {0, };
++    //for (int i = 0; i < SGX_HASH_SIZE; ++i) {
++    //    sprintf(&mrenclave_hex_str[i*2], "%02x", body->mr_enclave.m[i]);
++    //    sprintf(&mrsigner_hex_str[i*2], "%02x", body->mr_signer.m[i]);
++    //}
++    
++    const char* http_response = "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n" \
++        "<h2>mbed TLS Test Server</h2>\r\n"                             \
++        "<p>Successful connection using: %s</br>\r\n"                   \
++        "MRENCLAVE is %s</br>\r\nMRSIGNER is %s</p>\r\n";
++
++    //len = snprintf((char *) buf, sizeof (buf) - 1, http_response,
++    //               mbedtls_ssl_get_ciphersuite(&ssl),
++    //               mrenclave_hex_str, mrsigner_hex_str);
+ 
+     while( ( ret = mbedtls_ssl_write( &ssl, buf, len ) ) <= 0 )
+     {
+-- 
+2.26.0.windows.1
+

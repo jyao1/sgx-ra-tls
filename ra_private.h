@@ -8,7 +8,7 @@
 
 struct ra_tls_options;
 
-void do_remote_attestation(sgx_report_data_t* report_data,
+void do_remote_attestation(//sgx_report_data_t* report_data,
                            const struct ra_tls_options* opts,
                            attestation_verification_report_t* r);
 

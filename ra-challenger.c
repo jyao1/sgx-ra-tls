@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <sgx_quote.h>
+//#include <sgx_quote.h>
 
 #include "ra.h"
 #include "ra_private.h"
@@ -26,29 +26,57 @@ void *memmem(const void *h0, size_t k, const void *n0, size_t l);
 void get_quote_from_extension
 (
     uint8_t* exts,
-    size_t exts_len,
-    sgx_quote_t* q
+    size_t exts_len//,
+    //sgx_quote_t* q
 )
 {
     uint8_t report[2048];
     uint32_t report_len;
-    
-    int rc = extract_x509_extension(exts, exts_len,
+
+    int rc = extract_x509_extension(exts, (int)exts_len,
                                     ias_response_body_oid, ias_oid_len,
                                     report, &report_len, sizeof(report));
 
     if (rc == 1) {
-        get_quote_from_report(report, report_len, q);
+        get_quote_from_report(report, report_len//, q
+		);
         return;
     }
 
-    rc = extract_x509_extension(exts, exts_len,
+    rc = extract_x509_extension(exts, (int)exts_len,
                                 quote_oid, ias_oid_len,
                                 report, &report_len, sizeof(report));
-    assert(rc == 1);
-    memcpy(q, report, sizeof(*q));
+    //assert(rc == 1);
+    //memcpy(q, report, sizeof(*q));
 }
 
+void *
+memmem (const void *haystack, size_t haystack_len, const void *needle,
+	size_t needle_len)
+{
+  const char *begin;
+  const char *const last_possible
+    = (const char *) haystack + haystack_len - needle_len;
+
+  if (needle_len == 0)
+    /* The first occurrence of the empty string is deemed to occur at
+       the beginning of the string.  */
+    return (void *) haystack;
+
+  /* Sanity check, otherwise the loop might search through the whole
+     memory.  */
+  //if (__builtin_expect (haystack_len < needle_len, 0))
+  //  return NULL;
+
+  for (begin = (const char *) haystack; begin <= last_possible; ++begin)
+    if (begin[0] == ((const char *) needle)[0] &&
+	!memcmp ((const void *) &begin[1],
+		 (const void *) ((const char *) needle + 1),
+		 needle_len - 1))
+      return (void *) begin;
+
+  return NULL;
+}
 /**
  * @return Returns -1 if OID not found. Otherwise, returns 1;
  */
@@ -77,11 +105,15 @@ int find_oid
 
     // Now comes the octet string
     assert(p[i++] == 0x04); // tag for octet string
-    assert(p[i++] == 0x82); // length encoded in two bytes
-    *len  =  p[i++] << 8;
-    *len +=  p[i++];
+    if (p[i] != 0x82) {
+        *len = p[i++];
+    }
+    else {
+        assert(p[i++] == 0x82); // length encoded in two bytes
+        *len  =  p[i++] << 8;
+        *len +=  p[i++];
+    }
     *val  = &p[i++];
-
     return 1;
 }
 
@@ -108,7 +140,7 @@ int extract_x509_extension
     assert(ext_data != NULL);
     assert(ext_data_len <= data_max_len);
     memcpy(data, ext_data, ext_data_len);
-    *data_len = ext_data_len;
+    *data_len = (uint32_t)ext_data_len;
 
     return 1;
 }
@@ -235,8 +267,8 @@ void dprintf_epid_ratls_cert
 {
     attestation_verification_report_t report;
     extract_x509_extensions(der_crt, der_crt_len, &report);
-    dprintf(fd, "\nIntel Attestation Service Report\n");
-    dprintf(fd, "%.*s\n", report.ias_report_len, report.ias_report);
+    //dprintf(fd, "\nIntel Attestation Service Report\n");
+    //dprintf(fd, "%.*s\n", report.ias_report_len, report.ias_report);
 }
 
 /**
@@ -253,10 +285,10 @@ void dprintf_ecdsa_ratls_cert
     ecdsa_attestation_evidence_t evidence;
     ecdsa_extract_x509_extensions(der_crt, der_crt_len, &evidence);
 
-    dprintf(fd, "\nTCB info: ");
-    dprintf(fd, "%.*s\n", evidence.tcb_info_len, evidence.tcb_info);
-    dprintf(fd, "\nPCK Certificate:\n");
-    dprintf(fd, "%.*s\n", evidence.pck_crt_len, evidence.pck_crt);
+    //dprintf(fd, "\nTCB info: ");
+    //dprintf(fd, "%.*s\n", evidence.tcb_info_len, evidence.tcb_info);
+    //dprintf(fd, "\nPCK Certificate:\n");
+    //dprintf(fd, "%.*s\n", evidence.pck_crt_len, evidence.pck_crt);
 }
 
 void dprintf_ratls_cert
@@ -272,15 +304,15 @@ void dprintf_ratls_cert
         dprintf_ecdsa_ratls_cert(fd, der_crt, der_crt_len);
     }
 
-    sgx_quote_t quote;
-    get_quote_from_cert(der_crt, der_crt_len, &quote);
-    sgx_report_body_t* body = &quote.report_body;
+    //sgx_quote_t quote;
+    //get_quote_from_cert(der_crt, der_crt_len, &quote);
+    //sgx_report_body_t* body = &quote.report_body;
 
-    dprintf(fd, "MRENCLAVE = ");
-    for (int i=0; i < SGX_HASH_SIZE; ++i) dprintf(fd, "%02x", body->mr_enclave.m[i]);
-    dprintf(fd, "\n");
-    
-    dprintf(fd, "MRSIGNER  = ");
-    for (int i=0; i < SGX_HASH_SIZE; ++i) dprintf(fd, "%02x", body->mr_signer.m[i]);
-    dprintf(fd, "\n");
+    //dprintf(fd, "MRENCLAVE = ");
+    //for (int i=0; i < SGX_HASH_SIZE; ++i) dprintf(fd, "%02x", body->mr_enclave.m[i]);
+    //dprintf(fd, "\n");
+
+    //dprintf(fd, "MRSIGNER  = ");
+    //for (int i=0; i < SGX_HASH_SIZE; ++i) dprintf(fd, "%02x", body->mr_signer.m[i]);
+    //dprintf(fd, "\n");
 }

@@ -1,11 +1,11 @@
 #ifndef _RA_ATTESTER_H_
 #define _RA_ATTESTER_H_
 
-#include <sgx_quote.h>
+//#include <sgx_quote.h>
 
 struct ra_tls_options {
-    sgx_spid_t spid;
-    sgx_quote_sign_type_t quote_type;
+    //sgx_spid_t spid;
+    //sgx_quote_sign_type_t quote_type;
     /* NULL-terminated string of domain name/IP, port and path prefix,
        e.g., api.trustedservices.intel.com/sgx/dev for development and
        api.trustedservices.intel.com/sgx for production. */
@@ -47,6 +47,6 @@ void ecdsa_create_key_and_x509
 #endif
 
 void ra_tls_create_report(
-    sgx_report_t* report
+    //sgx_report_t* report
 );
 #endif
